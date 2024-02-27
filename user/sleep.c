@@ -9,7 +9,8 @@ main (int argc, char *argv[])
 
   if (argc != 2)
     {
-      write (1, "sleep: missing argument\n", 25);
+      fprintf (2, "sleep: missing argument\n");
+      exit (1);
     }
 
   ticks = atoi (argv[1]);
