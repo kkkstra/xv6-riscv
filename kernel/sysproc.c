@@ -7,96 +7,123 @@
 #include "proc.h"
 
 uint64
-sys_exit(void)
+sys_exit (void)
 {
   int n;
-  argint(0, &n);
-  exit(n);
-  return 0;  // not reached
+  argint (0, &n);
+  exit (n);
+  return 0; // not reached
 }
 
 uint64
-sys_getpid(void)
+sys_getpid (void)
 {
-  return myproc()->pid;
+  return myproc ()->pid;
 }
 
 uint64
-sys_fork(void)
+sys_fork (void)
 {
-  return fork();
+  return fork ();
 }
 
 uint64
-sys_wait(void)
+sys_wait (void)
 {
   uint64 p;
-  argaddr(0, &p);
-  return wait(p);
+  argaddr (0, &p);
+  return wait (p);
 }
 
 uint64
-sys_sbrk(void)
+sys_sbrk (void)
 {
   uint64 addr;
   int n;
 
-  argint(0, &n);
-  addr = myproc()->sz;
-  if(growproc(n) < 0)
+  argint (0, &n);
+  addr = myproc ()->sz;
+  if (growproc (n) < 0)
     return -1;
   return addr;
 }
 
 uint64
-sys_sleep(void)
+sys_sleep (void)
 {
   int n;
   uint ticks0;
 
-
-  argint(0, &n);
-  acquire(&tickslock);
+  argint (0, &n);
+  acquire (&tickslock);
   ticks0 = ticks;
-  while(ticks - ticks0 < n){
-    if(killed(myproc())){
-      release(&tickslock);
-      return -1;
+  while (ticks - ticks0 < n)
+    {
+      if (killed (myproc ()))
+        {
+          release (&tickslock);
+          return -1;
+        }
+      sleep (&ticks, &tickslock);
     }
-    sleep(&ticks, &tickslock);
-  }
-  release(&tickslock);
+  release (&tickslock);
   return 0;
 }
 
-
 #ifdef LAB_PGTBL
 int
-sys_pgaccess(void)
+sys_pgaccess (void)
 {
-  // lab pgtbl: your code here.
+  uint64 buf, abits;
+  int len;
+  argaddr (0, &buf);
+  argint (1, &len);
+  argaddr (2, &abits);
+
+  struct proc *p = myproc ();
+  unsigned int maskbits = 0;
+  for (int i = 0; i < len; i++)
+    {
+      uint64 va = (uint64)buf + i * PGSIZE;
+      pte_t *pte = walk (p->pagetable, va, 0);
+      if (pte == 0)
+        return -1;
+      if (*pte & PTE_A)
+        {
+          maskbits |= 1L << i;
+        }
+      // 清除 PTE_A 位
+      *pte &= ~PTE_A;
+    }
+  if (copyout (p->pagetable, (uint64)abits, (char *)&maskbits,
+               sizeof (maskbits))
+      < 0)
+    {
+      panic ("copyout failed");
+      return -1;
+    }
   return 0;
 }
 #endif
 
 uint64
-sys_kill(void)
+sys_kill (void)
 {
   int pid;
 
-  argint(0, &pid);
-  return kill(pid);
+  argint (0, &pid);
+  return kill (pid);
 }
 
 // return how many clock tick interrupts have occurred
 // since start.
 uint64
-sys_uptime(void)
+sys_uptime (void)
 {
   uint xticks;
 
-  acquire(&tickslock);
+  acquire (&tickslock);
   xticks = ticks;
-  release(&tickslock);
+  release (&tickslock);
   return xticks;
 }
